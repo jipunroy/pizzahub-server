@@ -3,13 +3,16 @@ import { ObjectId } from "mongodb";
 
 import { db } from "../../config/db.js";
 import type { MenuItem, MenuStatus } from "./menu.types.js";
+
 import type {
   CreateMenuInput,
   UpdateMenuInput,
+  PublicMenuQuery,
 } from "./menu.validation.js";
 
 const menuCollection = db.collection<MenuItem>("menuItems");
 
+// CREATE MENU ITEM
 export async function createMenuItem(
   vendorId: string,
   data: CreateMenuInput
@@ -33,6 +36,7 @@ export async function createMenuItem(
   };
 }
 
+// GET VENDOR MENU
 export async function getVendorMenu(vendorId: string) {
   return menuCollection
     .find({ vendorId })
@@ -40,6 +44,7 @@ export async function getVendorMenu(vendorId: string) {
     .toArray();
 }
 
+// GET SINGLE MENU ITEM
 export async function getMenuItemById(id: string) {
   if (!ObjectId.isValid(id)) {
     return null;
@@ -50,6 +55,7 @@ export async function getMenuItemById(id: string) {
   });
 }
 
+// UPDATE MENU ITEM
 export async function updateMenuItem(
   id: string,
   vendorId: string,
@@ -79,6 +85,7 @@ export async function updateMenuItem(
   return result;
 }
 
+// DELETE MENU ITEM
 export async function deleteMenuItem(
   id: string,
   vendorId: string
@@ -93,4 +100,59 @@ export async function deleteMenuItem(
   });
 
   return result.deletedCount > 0;
+}
+
+// GET PUBLIC MENU
+export async function getPublicMenu(query: PublicMenuQuery) {
+  const { search, category, page, limit } = query;
+
+  const filter: Record<string, unknown> = {
+    status: "approved",
+    isActive: true,
+  };
+
+  if (search) {
+    const safeSearch = search.replace(
+      /[.*+?^${}()|[\]\\]/g,
+      "\\$&"
+    );
+
+    filter.name = {
+      $regex: safeSearch,
+      $options: "i",
+    };
+  }
+
+  if (category) {
+    const safeCategory = category.replace(
+      /[.*+?^${}()|[\]\\]/g,
+      "\\$&"
+    );
+
+    filter.category = {
+      $regex: `^${safeCategory}$`,
+      $options: "i",
+    };
+  }
+
+  const [items, total] = await Promise.all([
+    menuCollection
+      .find(filter)
+      .sort({ createdAt: -1 })
+      .skip((page - 1) * limit)
+      .limit(limit)
+      .toArray(),
+
+    menuCollection.countDocuments(filter),
+  ]);
+
+  return {
+    items,
+    pagination: {
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    },
+  };
 }

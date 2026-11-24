@@ -9,14 +9,16 @@ import {
   deleteMenuItem,
   getVendorMenu,
   updateMenuItem,
+  getPublicMenu,
 } from "./menu.service.js";
 
 import {
   createMenuSchema,
   updateMenuSchema,
+  publicMenuQuerySchema,
 } from "./menu.validation.js";
 
-// Better Auth MongoDB users collection
+// BETTER AUTH USERS COLLECTION
 interface VendorDocument {
   _id: ObjectId;
   isBlocked?: boolean;
@@ -55,7 +57,6 @@ export const createMenu: RequestHandler = async (req, res) => {
       return;
     }
 
-    // Find vendor using MongoDB ObjectId
     if (!ObjectId.isValid(vendorId)) {
       res.status(400).json({
         success: false,
@@ -162,7 +163,10 @@ export const updateMenu: RequestHandler = async (req, res) => {
 
     const validation = updateMenuSchema.safeParse(req.body);
 
-    if (!validation.success || Object.keys(req.body).length === 0) {
+    if (
+      !validation.success ||
+      Object.keys(req.body).length === 0
+    ) {
       res.status(400).json({
         success: false,
         message: "Invalid or empty update data",
@@ -236,6 +240,41 @@ export const deleteMenu: RequestHandler = async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Failed to delete menu item",
+    });
+  }
+};
+
+// GET PUBLIC MENU
+export const getPublicMenus: RequestHandler = async (
+  req,
+  res
+) => {
+  try {
+    const validation = publicMenuQuerySchema.safeParse(req.query);
+
+    if (!validation.success) {
+      res.status(400).json({
+        success: false,
+        message: "Invalid query parameters",
+        errors: validation.error.flatten(),
+      });
+      return;
+    }
+
+    const result = await getPublicMenu(validation.data);
+
+    res.status(200).json({
+      success: true,
+      results: result.items.length,
+      pagination: result.pagination,
+      data: result.items,
+    });
+  } catch (error) {
+    console.error("Get public menu error:", error);
+
+    res.status(500).json({
+      success: false,
+      message: "Failed to fetch public menu",
     });
   }
 };

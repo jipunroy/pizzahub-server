@@ -9,39 +9,28 @@ import {
   deleteMenu,
   getMyMenu,
   updateMenu,
+  getPublicMenus,
 } from "./menu.controller.js";
 
 const router = Router();
 
-// All menu management routes require authentication
+// PUBLIC MENU ROUTE
+// Customer does not need authentication
+router.get("/", getPublicMenus);
+
+// PROTECTED VENDOR ROUTES
 router.use(authenticate);
 
 // Vendor: Create menu item
-router.post(
-  "/",
-  authorize("vendor"),
-  createMenu
-);
+router.post("/", authorize("vendor"), createMenu);
 
 // Vendor: Get own menu items
-router.get(
-  "/my-menu",
-  authorize("vendor"),
-  getMyMenu
-);
+router.get("/my-menu", authorize("vendor"), getMyMenu);
 
 // Vendor: Update own menu item
-router.patch(
-  "/:id",
-  authorize("vendor"),
-  updateMenu
-);
+router.patch("/:id", authorize("vendor"), updateMenu);
 
 // Vendor: Delete own menu item
-router.delete(
-  "/:id",
-  authorize("vendor"),
-  deleteMenu
-);
+router.delete("/:id", authorize("vendor"), deleteMenu);
 
 export default router;
