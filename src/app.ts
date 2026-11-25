@@ -1,4 +1,3 @@
-
 import express from "express";
 import cors from "cors";
 import helmet from "helmet";
@@ -12,6 +11,7 @@ import { authorize } from "./middleware/authorize.js";
 import menuRoutes from "./modules/menu/menu.routes.js";
 import adminRoutes from "./modules/admin/admin.routes.js";
 import orderRoutes from "./modules/orders/order.routes.js";
+import subscriptionRoutes from "./modules/subscription/subscription.routes.js";
 
 const app = express();
 
@@ -77,5 +77,8 @@ app.use("/api/admin", adminRoutes);
 
 // ORDER MANAGEMENT ROUTES
 app.use("/api/orders", orderRoutes);
+
+// SUBSCRIPTION ROUTES
+app.use("/api/subscriptions", subscriptionRoutes);
 
 export default app;

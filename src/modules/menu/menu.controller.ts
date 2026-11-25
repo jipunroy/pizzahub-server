@@ -1,7 +1,6 @@
+
 import type { RequestHandler } from "express";
 import { ObjectId } from "mongodb";
-
-import { db } from "../../config/db.js";
 
 import {
   createMenuItem,
@@ -9,8 +8,6 @@ import {
   getVendorMenu,
   updateMenuItem,
   getPublicMenu,
-  getVendorMenuItemById,
-  countActiveVendorMenuItems,
 } from "./menu.service.js";
 
 import {
@@ -19,15 +16,7 @@ import {
   publicMenuQuerySchema,
 } from "./menu.validation.js";
 
-// BETTER AUTH USERS COLLECTION
-interface VendorDocument {
-  _id: ObjectId;
-  isBlocked?: boolean;
-  subscriptionPlan?: string;
-}
-
-const usersCollection = db.collection<VendorDocument>("users");
-
+// GET PARAMETER ID
 function getParamId(
   value: string | string[] | undefined
 ): string | null {
@@ -40,6 +29,51 @@ function getParamId(
   }
 
   return null;
+}
+
+// HANDLE MENU SERVICE ERRORS
+function handleMenuError(
+  error: unknown,
+  res: Parameters<RequestHandler>[1],
+  action: string
+) {
+  console.error(`${action} error:`, error);
+
+  if (error instanceof Error) {
+    if (
+      error.message.startsWith(
+        "Free plan allows maximum 3"
+      ) ||
+      error.message === "Your vendor account is blocked"
+    ) {
+      res.status(403).json({
+        success: false,
+        message: error.message,
+      });
+      return;
+    }
+
+    if (error.message === "Vendor not found") {
+      res.status(404).json({
+        success: false,
+        message: error.message,
+      });
+      return;
+    }
+
+    if (error.message === "Invalid vendor ID") {
+      res.status(400).json({
+        success: false,
+        message: error.message,
+      });
+      return;
+    }
+  }
+
+  res.status(500).json({
+    success: false,
+    message: `Failed to ${action.toLowerCase()}`,
+  });
 }
 
 // CREATE MENU ITEM
@@ -66,42 +100,6 @@ export const createMenu: RequestHandler = async (req, res) => {
       return;
     }
 
-    const vendor = await usersCollection.findOne({
-      _id: new ObjectId(vendorId),
-    });
-
-    if (!vendor) {
-      res.status(404).json({
-        success: false,
-        message: "Vendor account not found",
-      });
-      return;
-    }
-
-    if (vendor.isBlocked === true) {
-      res.status(403).json({
-        success: false,
-        message: "Blocked vendors cannot manage menu items",
-      });
-      return;
-    }
-
-    const isPremium = vendor.subscriptionPlan === "premium";
-
-    if (!isPremium) {
-      const activeCount =
-        await countActiveVendorMenuItems(vendorId);
-
-      if (activeCount >= 3) {
-        res.status(403).json({
-          success: false,
-          message:
-            "Free vendors can have only 3 active menu items. Upgrade to Premium.",
-        });
-        return;
-      }
-    }
-
     const menuItem = await createMenuItem(
       vendorId,
       validation.data
@@ -113,12 +111,7 @@ export const createMenu: RequestHandler = async (req, res) => {
       data: menuItem,
     });
   } catch (error) {
-    console.error("Create menu error:", error);
-
-    res.status(500).json({
-      success: false,
-      message: "Failed to create menu item",
-    });
+    handleMenuError(error, res, "Create menu item");
   }
 };
 
@@ -174,63 +167,6 @@ export const updateMenu: RequestHandler = async (req, res) => {
       return;
     }
 
-    // FIND MENU ITEM OWNED BY THIS VENDOR
-    const existingItem = await getVendorMenuItemById(
-      id,
-      vendorId
-    );
-
-    if (!existingItem) {
-      res.status(404).json({
-        success: false,
-        message: "Menu item not found",
-      });
-      return;
-    }
-
-    // CHECK VENDOR SUBSCRIPTION
-    const vendor = await usersCollection.findOne({
-      _id: new ObjectId(vendorId),
-    });
-
-    if (!vendor) {
-      res.status(404).json({
-        success: false,
-        message: "Vendor account not found",
-      });
-      return;
-    }
-
-    if (vendor.isBlocked === true) {
-      res.status(403).json({
-        success: false,
-        message: "Blocked vendors cannot manage menu items",
-      });
-      return;
-    }
-
-    const isPremium = vendor.subscriptionPlan === "premium";
-
-    // FREE VENDOR ACTIVE ITEM LIMIT
-    if (
-      !isPremium &&
-      validation.data.isActive === true &&
-      existingItem.isActive === false
-    ) {
-      const activeCount =
-        await countActiveVendorMenuItems(vendorId, id);
-
-      if (activeCount >= 3) {
-        res.status(403).json({
-          success: false,
-          message:
-            "Free vendors can have only 3 active menu items. Upgrade to Premium.",
-        });
-        return;
-      }
-    }
-
-    // UPDATE MENU ITEM
     const result = await updateMenuItem(
       id,
       vendorId,
@@ -251,12 +187,7 @@ export const updateMenu: RequestHandler = async (req, res) => {
       data: result,
     });
   } catch (error) {
-    console.error("Update menu error:", error);
-
-    res.status(500).json({
-      success: false,
-      message: "Failed to update menu item",
-    });
+    handleMenuError(error, res, "Update menu item");
   }
 };
 
@@ -304,7 +235,9 @@ export const getPublicMenus: RequestHandler = async (
   res
 ) => {
   try {
-    const validation = publicMenuQuerySchema.safeParse(req.query);
+    const validation = publicMenuQuerySchema.safeParse(
+      req.query
+    );
 
     if (!validation.success) {
       res.status(400).json({
