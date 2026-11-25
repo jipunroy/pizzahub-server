@@ -8,7 +8,8 @@
     "dev:nodemon": "nodemon --watch src --ext ts --exec tsx src/server.ts",
     "build": "tsc",
     "start": "node dist/server.js",
-    "admin:promote": "tsx src/scripts/promote-admin.ts"
+    "admin:promote": "tsx src/scripts/promote-admin.ts",
+    "subscription:indexes": "tsx src/scripts/setup-subscription-indexes.ts"
   },
   "keywords": [],
   "author": "",
