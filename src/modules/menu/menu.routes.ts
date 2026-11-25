@@ -1,8 +1,8 @@
-
 import { Router } from "express";
 
 import { authenticate } from "../../middleware/authenticate.js";
 import { authorize } from "../../middleware/authorize.js";
+import { checkVendorStatus } from "../../middleware/checkVendorStatus.js";
 
 import {
   createMenu,
@@ -15,22 +15,19 @@ import {
 const router = Router();
 
 // PUBLIC MENU ROUTE
-// Customer does not need authentication
 router.get("/", getPublicMenus);
 
-// PROTECTED VENDOR ROUTES
-router.use(authenticate);
+// ALL VENDOR ROUTES REQUIRE AUTHENTICATION,
+// VENDOR ROLE AND ACTIVE ACCOUNT STATUS
+router.use(
+  authenticate,
+  authorize("vendor"),
+  checkVendorStatus
+);
 
-// Vendor: Create menu item
-router.post("/", authorize("vendor"), createMenu);
-
-// Vendor: Get own menu items
-router.get("/my-menu", authorize("vendor"), getMyMenu);
-
-// Vendor: Update own menu item
-router.patch("/:id", authorize("vendor"), updateMenu);
-
-// Vendor: Delete own menu item
-router.delete("/:id", authorize("vendor"), deleteMenu);
+router.post("/", createMenu);
+router.get("/my-menu", getMyMenu);
+router.patch("/:id", updateMenu);
+router.delete("/:id", deleteMenu);
 
 export default router;

@@ -1,4 +1,3 @@
-
 import type { RequestHandler } from "express";
 import { ObjectId } from "mongodb";
 
@@ -10,6 +9,8 @@ import {
   getVendorMenu,
   updateMenuItem,
   getPublicMenu,
+  getVendorMenuItemById,
+  countActiveVendorMenuItems,
 } from "./menu.service.js";
 
 import {
@@ -88,12 +89,8 @@ export const createMenu: RequestHandler = async (req, res) => {
     const isPremium = vendor.subscriptionPlan === "premium";
 
     if (!isPremium) {
-      const activeCount = await db
-        .collection("menuItems")
-        .countDocuments({
-          vendorId,
-          isActive: true,
-        });
+      const activeCount =
+        await countActiveVendorMenuItems(vendorId);
 
       if (activeCount >= 3) {
         res.status(403).json({
@@ -177,6 +174,63 @@ export const updateMenu: RequestHandler = async (req, res) => {
       return;
     }
 
+    // FIND MENU ITEM OWNED BY THIS VENDOR
+    const existingItem = await getVendorMenuItemById(
+      id,
+      vendorId
+    );
+
+    if (!existingItem) {
+      res.status(404).json({
+        success: false,
+        message: "Menu item not found",
+      });
+      return;
+    }
+
+    // CHECK VENDOR SUBSCRIPTION
+    const vendor = await usersCollection.findOne({
+      _id: new ObjectId(vendorId),
+    });
+
+    if (!vendor) {
+      res.status(404).json({
+        success: false,
+        message: "Vendor account not found",
+      });
+      return;
+    }
+
+    if (vendor.isBlocked === true) {
+      res.status(403).json({
+        success: false,
+        message: "Blocked vendors cannot manage menu items",
+      });
+      return;
+    }
+
+    const isPremium = vendor.subscriptionPlan === "premium";
+
+    // FREE VENDOR ACTIVE ITEM LIMIT
+    if (
+      !isPremium &&
+      validation.data.isActive === true &&
+      existingItem.isActive === false
+    ) {
+      const activeCount =
+        await countActiveVendorMenuItems(vendorId, id);
+
+      if (activeCount >= 3) {
+        res.status(403).json({
+          success: false,
+          message:
+            "Free vendors can have only 3 active menu items. Upgrade to Premium.",
+        });
+        return;
+      }
+    }
+
+    // UPDATE MENU ITEM
     const result = await updateMenuItem(
       id,
       vendorId,
@@ -186,7 +240,7 @@ export const updateMenu: RequestHandler = async (req, res) => {
     if (!result) {
       res.status(404).json({
         success: false,
-        message: "Menu item not found or access denied",
+        message: "Menu item not found",
       });
       return;
     }

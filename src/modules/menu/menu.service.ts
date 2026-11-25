@@ -1,4 +1,3 @@
-
 import { ObjectId } from "mongodb";
 
 import { db } from "../../config/db.js";
@@ -55,6 +54,40 @@ export async function getMenuItemById(id: string) {
   });
 }
 
+// GET SINGLE VENDOR MENU ITEM
+export async function getVendorMenuItemById(
+  id: string,
+  vendorId: string
+) {
+  if (!ObjectId.isValid(id)) {
+    return null;
+  }
+
+  return menuCollection.findOne({
+    _id: new ObjectId(id),
+    vendorId,
+  });
+}
+
+// COUNT ACTIVE MENU ITEMS FOR VENDOR
+export async function countActiveVendorMenuItems(
+  vendorId: string,
+  excludeId?: string
+) {
+  const filter: Record<string, unknown> = {
+    vendorId,
+    isActive: true,
+  };
+
+  if (excludeId && ObjectId.isValid(excludeId)) {
+    filter._id = {
+      $ne: new ObjectId(excludeId),
+    };
+  }
+
+  return menuCollection.countDocuments(filter);
+}
+
 // UPDATE MENU ITEM
 export async function updateMenuItem(
   id: string,
@@ -103,7 +136,9 @@ export async function deleteMenuItem(
 }
 
 // GET PUBLIC MENU
-export async function getPublicMenu(query: PublicMenuQuery) {
+export async function getPublicMenu(
+  query: PublicMenuQuery
+) {
   const { search, category, page, limit } = query;
 
   const filter: Record<string, unknown> = {
