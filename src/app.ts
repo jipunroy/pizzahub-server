@@ -11,12 +11,14 @@ import { authorize } from "./middleware/authorize.js";
 
 import menuRoutes from "./modules/menu/menu.routes.js";
 import adminRoutes from "./modules/admin/admin.routes.js";
+import orderRoutes from "./modules/orders/order.routes.js";
 
 const app = express();
 
+// SECURITY MIDDLEWARE
 app.use(helmet());
 
-// CORS configuration
+// CORS CONFIGURATION
 app.use(
   cors({
     origin: process.env.CLIENT_URL,
@@ -26,13 +28,14 @@ app.use(
   })
 );
 
-// Better Auth handler must come before express.json()
+// BETTER AUTH HANDLER
+// Must come before express.json()
 app.all("/api/auth/*splat", toNodeHandler(auth));
 
-// JSON middleware for normal Express APIs
+// JSON MIDDLEWARE
 app.use(express.json());
 
-// Health check
+// HEALTH CHECK
 app.get("/api/health", (_req, res) => {
   res.status(200).json({
     success: true,
@@ -40,7 +43,7 @@ app.get("/api/health", (_req, res) => {
   });
 });
 
-// Protected API test
+// PROTECTED API TEST
 app.get(
   "/api/test/protected",
   authenticate,
@@ -53,7 +56,7 @@ app.get(
   }
 );
 
-// Vendor API test
+// VENDOR API TEST
 app.get(
   "/api/test/vendor",
   authenticate,
@@ -66,10 +69,13 @@ app.get(
   }
 );
 
-// Menu management routes
+// MENU MANAGEMENT ROUTES
 app.use("/api/menu", menuRoutes);
 
-// Admin management routes
+// ADMIN MANAGEMENT ROUTES
 app.use("/api/admin", adminRoutes);
+
+// ORDER MANAGEMENT ROUTES
+app.use("/api/orders", orderRoutes);
 
 export default app;
